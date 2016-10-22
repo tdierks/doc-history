@@ -1,0 +1,17 @@
+{
+  "manifest_version": 2,
+  
+  "name": "Docs history",
+  "description": "Tracks your most-recently used Google Docs documents for quick access",
+  "author": "Tim Dierks <tim@dierks.org>",
+  "version": "1.0",
+  "homepage_url": "https://github.com/tdierks/doc-history",
+  "icons": {
+    "128": "icon128.png"
+  },
+  
+  "permissions": [
+    "activeTab",
+    "storage"
+  ]
+}
