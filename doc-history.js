@@ -112,7 +112,7 @@ chrome.omnibox.onInputEntered.addListener(function inputEntered(text, dispositio
   if (disposition == "currentTab") {
     chrome.tabs.update({"url": destEntry.url});
   } else {
-    chrome.tabs.create({"active": (disposition=="newForegroundTab"), "url": destEntry.url()});
+    chrome.tabs.create({"active": (disposition=="newForegroundTab"), "url": destEntry.url});
   }
 });
 
