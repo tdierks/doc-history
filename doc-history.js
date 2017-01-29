@@ -6,26 +6,27 @@ class DocsStorage {
   constructor() {
     this.MAX_DOCS = 100;
     this.docList = {};
-    this.nextIndex = 0;
   }
 
-  // given a url, title, document type, and an ID, track based on ID
-  // keep an index field, which is equivalent to "last accessed" counter
-  // (incrementing instead of time so as not to be dependent on clock
-  // sync with multiple machines).
-  // When adding a doc, if we already have MAX_DOCS, delete the one with
-  // lowest ("oldest") index
-  addDoc(url, title, type, id) {
+  addDoc(url, title, type, id, when, dirty = true) {
     var docEntry;
     if (id in this.docList) {
       docEntry = this.docList[id];
+      // guard against old entries syncing when we have more recent access/info
+      if (docEntry.when > when) {
+        return docEntry;
+      }
+      // suppress extraneous storage writes for non-changes
+      if (docEntry.title == title && docEntry.url == url && when - docEntry.when < 15000) {
+        dirty = false;
+      }
     } else {
       if (Object.keys(this.docList).length >= this.MAX_DOCS) {
-        var oldestIndex = this.nextIndex;
+        var oldestWhen = Date.now();
         var oldestId;
         for (var i in this.docList) {
-          if (this.docList[i].index < oldestIndex) {
-            oldestIndex = this.docList[i].index;
+          if (this.docList[i].when < oldestWhen) {
+            oldestWhen = this.docList[i].when;
             oldestId = i;
           }
         }
@@ -35,22 +36,43 @@ class DocsStorage {
       this.docList[id] = docEntry;
     }
     docEntry.url = url;
-    docEntry.title = stripTitle(title);
+    docEntry.title = title;
     docEntry.type = type;
-    docEntry.id = id;
-    docEntry.index = this.nextIndex;
-    this.nextIndex += 1;
+    docEntry.when = when;
+    if (dirty) {
+      this.storeEntry(id, docEntry);
+    }
     return docEntry;
   }
   
-  saveDocs() {
-    
+  storeEntry(id, entry) {
+    console.log("Storing", entry.title, "url", entry.url);
+    const o = { };
+    o[id] = entry;
+    chrome.storage.sync.set(o);
+  }
+
+  loadFromStorage() {
+    const now = Date.now();
+    const thisDocs = this;
+    chrome.storage.sync.get(null, function(items) {
+      for (var id in items) {
+        const qq = items[id];
+        var when = qq.when;
+        // guard against time travelers (would keep us from freshening, look too new)
+        if (when > now) {
+          when = now;
+        }
+        console.log("Adding", qq.title, "url", qq.url);
+        thisDocs.addDoc(qq.url, qq.title, qq.type, id, when, false);
+      }
+    });
   }
 
   recentIds() {
     const docList = this.docList;
     const ids = Object.keys(docList);
-    ids.sort(function descendingIndices(a,b){ return docList[b].index - docList[a].index; });
+    ids.sort(function descendingIndices(a,b){ return docList[b].when - docList[a].when; });
     return ids;
   }
 }
@@ -66,26 +88,32 @@ function stripTitle(title) {
   }
 }
 
-function entryMatchesQuery(entry, q) {
+function parseQuery(q) {
+  return q.toLowerCase()
+    .split(/\s+/)
+    .map(function(term) {
+      return new RegExp('\\b'+escapeRegExp(term))
+    });
+}
+
+function entryMatchesQuery(entry, queryTerms) {
   const titleLC = entry.title.toLowerCase();
-  const terms = q.toLowerCase().split(/\s+/);
-  return terms.reduce(function(matchSoFar, term) {
-      if (!matchSoFar) {
-        return false;
-      } else {
-        return new RegExp('\\b'+escapeRegExp(term)).test(titleLC);
-      }
+  // short-circuiting AND for "all terms match entry"
+  return queryTerms.reduce(function(matchSoFar, qTerm) {
+      return matchSoFar && qTerm.test(titleLC);
     }, true);
 }
 
 const docs = new DocsStorage();
+docs.loadFromStorage();
 
 const MAX_RESULTS = 5;
 
 chrome.omnibox.onInputChanged.addListener(function inputChanged(text, suggest) {
+  const parsedQuery = parseQuery(text);
   suggest(docs.recentIds()
     .map(function(id) { return docs.docList[id]; })
-    .filter(function(entry) { return entryMatchesQuery(entry, text); })
+    .filter(function(entry) { return entryMatchesQuery(entry, parsedQuery); })
     .filter(function(entry, index) { return index < MAX_RESULTS; })
     .map(function(entry, index) {
         var t = escapeXml(entry.title);
@@ -101,9 +129,10 @@ chrome.omnibox.onInputChanged.addListener(function inputChanged(text, suggest) {
 });
 
 chrome.omnibox.onInputEntered.addListener(function inputEntered(text, disposition) {
+  const parsedQuery = parseQuery(text);
   const matchingEntries = docs.recentIds()
     .map(function(id) { return docs.docList[id]; })
-    .filter(function(entry) { return entryMatchesQuery(entry, text); });
+    .filter(function(entry) { return entryMatchesQuery(entry, parsedQuery); });
   if (matchingEntries.length == 0) {
     console.log("No match for", text);
     return;
@@ -130,7 +159,7 @@ function addTab(url, title) {
   var m = MATCH_DOCS_URLS.exec(url);
   if (m) {
     console.log("Found doc with URL ", url, " title ", title);
-    trackUrl(url, title, m[1], m[2])
+    trackUrl(url, stripTitle(title), m[1], m[2], new Date())
   }
 }
 
@@ -142,8 +171,8 @@ function atStartup() {
 };
 atStartup();
 
-function trackUrl(url, title, type, id) {
-  docs.addDoc(url, title, type, id);
+function trackUrl(url, title, type, id, when) {
+  docs.addDoc(url, title, type, id, when);
   if (DEBUG) {
     updateDebugList();
   }
