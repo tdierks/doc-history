@@ -7,11 +7,21 @@
   "version": "1.0",
   "homepage_url": "https://github.com/tdierks/doc-history",
   "icons": {
+    "16": "icon16.png",
     "128": "icon128.png"
+  },
+
+  "background": {
+    "page": "doc-history.html",
+    "persistent": false
   },
   
   "permissions": [
-    "activeTab",
+    "tabs",
     "storage"
-  ]
+  ],
+
+  "omnibox": {
+    "keyword": "dh"
+  }
 }
