@@ -92,7 +92,7 @@ function parseQuery(q) {
   return q.toLowerCase()
     .split(/\s+/)
     .map(function(term) {
-      return new RegExp('\\b'+escapeRegExp(term))
+      return new RegExp('(\\b|^|\\s)'+escapeRegExp(term))
     });
 }
 
