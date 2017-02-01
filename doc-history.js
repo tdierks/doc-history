@@ -92,7 +92,7 @@ function parseQuery(q) {
   return q.toLowerCase()
     .split(/\s+/)
     .map(function(term) {
-      return new RegExp('(\\b|^|\\s)'+escapeRegExp(term))
+      return new RegExp('(\\b|^|\\s)'+escapeRegExp(term));
     });
 }
 
@@ -118,7 +118,7 @@ chrome.omnibox.onInputChanged.addListener(function inputChanged(text, suggest) {
     .map(function(entry, index) {
         var t = escapeXml(entry.title);
         if (index > 0) {
-          t = "<dim>" + t + "</dim>"
+          t = "<dim>" + t + "</dim>";
         }
         return {
           "content": entry.title,
@@ -133,7 +133,7 @@ chrome.omnibox.onInputEntered.addListener(function inputEntered(text, dispositio
   const matchingEntries = docs.recentIds()
     .map(function(id) { return docs.docList[id]; })
     .filter(function(entry) { return entryMatchesQuery(entry, parsedQuery); });
-  if (matchingEntries.length == 0) {
+  if (matchingEntries.length === 0) {
     console.log("No match for", text);
     return;
   }
@@ -147,7 +147,7 @@ chrome.omnibox.onInputEntered.addListener(function inputEntered(text, dispositio
 
 chrome.tabs.onUpdated.addListener(function tabUpdated(tabId, changeInfo, tab) {
   if ((changeInfo.status && changeInfo.status == "complete") || changeInfo.title) {
-    addTab(tab.url, tab.title)
+    addTab(tab.url, tab.title);
   }
 });
 
@@ -159,7 +159,7 @@ function addTab(url, title) {
   var m = MATCH_DOCS_URLS.exec(url);
   if (m) {
     console.log("Found doc with URL ", url, " title ", title);
-    trackUrl(url, stripTitle(title), m[1], m[2], new Date())
+    trackUrl(url, stripTitle(title), m[1], m[2], new Date());
   }
 }
 
@@ -168,7 +168,7 @@ function atStartup() {
   chrome.tabs.query({ "url": "*://docs.google.com/*" }, function(tabs) {
     tabs.forEach(function(tab) { addTab(tab.url, tab.title); });
   });
-};
+}
 atStartup();
 
 function trackUrl(url, title, type, id, when) {
